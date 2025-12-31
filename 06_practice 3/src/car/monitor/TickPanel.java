@@ -15,9 +15,10 @@ public class TickPanel extends JPanel implements TickListener {
     public TickPanel(){
         super(new BorderLayout());
         list.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        setPreferredSize(new Dimension(300, 300));
         JScrollPane scrollPane = new JScrollPane(list);
         add(scrollPane, BorderLayout.CENTER);
-        add(new JLabel("原子行为监视（每2帧一页）"), BorderLayout.NORTH);
+        add(new JLabel("原子行为监视（每2帧一页，前->后）"), BorderLayout.NORTH);
     }
 
     public void setPageByFrame(int frameIndex){

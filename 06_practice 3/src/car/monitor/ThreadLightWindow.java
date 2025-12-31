@@ -44,6 +44,7 @@ public class ThreadLightWindow extends JFrame implements ThreadStateListener, Wa
         });
         label.setBackground(isWaiting ? Color.RED : Color.GREEN);
         label.setForeground(Color.WHITE);
+        revalidate();
         repaint();
     }
 }

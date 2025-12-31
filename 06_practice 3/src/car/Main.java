@@ -42,7 +42,7 @@ public class Main {
             public void run(){
                 Random random = new Random();
                 Car car = carServer.createCar();
-                car.setName(name);
+                car.setName(String.valueOf(car.getIndex()));
                 Thread.currentThread().setName("car-thread-"+car.getIndex()+"-"+name);
                 CarServer.Direction direction = CarServer.Direction.DOWN;
                 while(true){
