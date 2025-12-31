@@ -11,13 +11,15 @@ public class PlaybackFrame {
     private final String reason;
     private final java.util.List<CarSnapshot> cars;
     private final int index;
+    private final ActionOverlay overlay;
 
-    public PlaybackFrame(MatrixField.CellState[][] snapshot, long timestamp, String reason, java.util.List<CarSnapshot> cars, int index) {
+    public PlaybackFrame(MatrixField.CellState[][] snapshot, long timestamp, String reason, java.util.List<CarSnapshot> cars, int index, ActionOverlay overlay) {
         this.snapshot = snapshot;
         this.timestamp = timestamp;
         this.reason = reason;
         this.cars = cars;
         this.index = index;
+        this.overlay = overlay;
     }
 
     public MatrixField.CellState[][] getSnapshot() {
@@ -38,5 +40,9 @@ public class PlaybackFrame {
 
     public int getIndex() {
         return index;
+    }
+
+    public ActionOverlay getOverlay() {
+        return overlay;
     }
 }

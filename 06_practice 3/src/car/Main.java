@@ -64,7 +64,11 @@ public class Main {
         Thread.sleep(1000);
         new Thread(new CarMover("Nata")).start(); //car3
         Thread.sleep(1000);
-        new Thread(new CarMover("Boris")).start(); //car3
+        new Thread(new CarMover("Boris")).start(); //car4
+        Thread.sleep(1000);
+        new Thread(new CarMover("Mila")).start(); //car5
+        Thread.sleep(1000);
+        new Thread(new CarMover("John")).start(); //car6
 
     }
 }

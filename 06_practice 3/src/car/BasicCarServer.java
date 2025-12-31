@@ -62,7 +62,10 @@ public class BasicCarServer implements CarServer {
         @Override
         public void run(){
             while(true){
-                try{ Thread.sleep(300 + rnd.nextInt(700)); }catch(InterruptedException e){ break; }
+                try{
+                    while (car.control.ControlCenter.isPaused()) Thread.sleep(100);
+                    Thread.sleep(300 + rnd.nextInt(700));
+                }catch(InterruptedException e){ break; }
                 MonitorCenter.beginActionFrame();
                 if (rnd.nextBoolean()){
                     for (int t=0; t<20; t++){

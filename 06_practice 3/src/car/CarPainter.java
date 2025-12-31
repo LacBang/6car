@@ -1,7 +1,14 @@
 package car;
 
 import car.control.ControlCenter;
-import car.monitor.*;
+import car.monitor.ActionOverlay;
+import car.monitor.ActionPreviewPanel;
+import car.monitor.CarSnapshot;
+import car.monitor.MonitorCenter;
+import car.monitor.PlaybackFrame;
+import car.monitor.PlaybackPanel;
+import car.monitor.PlaybackRecorder;
+import car.monitor.TickPanel;
 
 import javax.swing.*;
 import java.awt.*;
@@ -19,11 +26,13 @@ public class CarPainter extends JPanel implements CarEventsListener {
     private final PlaybackPanel playbackPanel;
     private final TickPanel tickPanel;
     private final ActionPreviewPanel previewPanel;
+    private final JCheckBox followTick = new JCheckBox("跟随最新", true);
     private final JToggleButton pauseBtn = new JToggleButton("暂停全局");
     private boolean liveMode = true;
     private MatrixField.CellState[][] replaySnapshot;
     private String overlay = "";
     private Position criticalHighlight;
+    private ActionOverlay lastOverlay;
 
     public CarPainter(MatrixField fieldMatrix) {
         super();
@@ -48,6 +57,7 @@ public class CarPainter extends JPanel implements CarEventsListener {
         south.add(playbackPanel, BorderLayout.CENTER);
         JPanel controlBar = new JPanel();
         controlBar.add(pauseBtn);
+        controlBar.add(followTick);
         south.add(controlBar, BorderLayout.EAST);
         f.add(south, BorderLayout.SOUTH);
         f.setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -62,7 +72,7 @@ public class CarPainter extends JPanel implements CarEventsListener {
                 ControlCenter.resume();
             }
         });
-        recorder.record(fieldMatrix, snapshotCars(),"init", MonitorCenter.getCurrentFrame());
+        recorder.record(fieldMatrix, snapshotCars(),"init", MonitorCenter.getCurrentFrame(), null);
         playbackPanel.updateFrames(recorder.getFrames());
         previewPanel.update(recorder.getFrames());
         tickPanel.setPageByFrame(0);
@@ -77,6 +87,7 @@ public class CarPainter extends JPanel implements CarEventsListener {
         this.overlay = overlay;
         this.liveMode = false;
         this.replayCars = frame.getCars();
+        this.lastOverlay = frame.getOverlay();
         tickPanel.setPageByFrame(frame.getIndex());
         repaint();
     }
@@ -140,6 +151,7 @@ public class CarPainter extends JPanel implements CarEventsListener {
                 g.setColor(Color.RED);
                 g.drawRect(left + criticalHighlight.col * step, top + criticalHighlight.row * step, step, step);
             }
+            paintOverlayArrow(g, left, top, step, lastOverlay);
         }else{
             // 回放模式：按照快照绘制
             for (int i = 0; i < fieldMatrix.getRows(); i++)
@@ -165,6 +177,7 @@ public class CarPainter extends JPanel implements CarEventsListener {
                             top + p.row * step + step / 2);
                 }
             }
+            paintOverlayArrow(g, left, top, step, lastOverlay);
             g.setColor(Color.MAGENTA);
             g.drawString(overlay, left, top-5);
         }
@@ -173,19 +186,19 @@ public class CarPainter extends JPanel implements CarEventsListener {
     @Override
     public void carCreated(Car car) {
         cars.add(car);
-        recorder.record(fieldMatrix, snapshotCars(),"car-created-"+car.getIndex(), MonitorCenter.getCurrentFrame());
+        recorder.record(fieldMatrix, snapshotCars(),"car-created-"+car.getIndex(), MonitorCenter.getCurrentFrame(), null);
         playbackPanel.updateFrames(recorder.getFrames());
         previewPanel.update(recorder.getFrames());
-        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
+        if (followTick.isSelected()) tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
     }
 
     @Override
     public void carDestroyed(Car car) {
         cars.remove(car);
-        recorder.record(fieldMatrix, snapshotCars(),"car-destroyed-"+car.getIndex(), MonitorCenter.getCurrentFrame());
+        recorder.record(fieldMatrix, snapshotCars(),"car-destroyed-"+car.getIndex(), MonitorCenter.getCurrentFrame(), null);
         playbackPanel.updateFrames(recorder.getFrames());
         previewPanel.update(recorder.getFrames());
-        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
+        if (followTick.isSelected()) tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
     }
 
     @Override
@@ -198,19 +211,20 @@ public class CarPainter extends JPanel implements CarEventsListener {
             criticalHighlight = to;
             overlay = "移动到: "+to;
         }
-        recorder.record(fieldMatrix, snapshotCars(),"car-"+car.getIndex()+" move "+success, MonitorCenter.getCurrentFrame());
+        lastOverlay = new ActionOverlay(from, to, overlay);
+        recorder.record(fieldMatrix, snapshotCars(),"car-"+car.getIndex()+" move "+success, MonitorCenter.getCurrentFrame(), lastOverlay);
         playbackPanel.updateFrames(recorder.getFrames());
         previewPanel.update(recorder.getFrames());
-        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
+        if (followTick.isSelected()) tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
         repaint();
     }
 
     @Override
     public void fieldChanged() {
-        recorder.record(fieldMatrix, snapshotCars(),"field-change", MonitorCenter.getCurrentFrame());
+        recorder.record(fieldMatrix, snapshotCars(),"field-change", MonitorCenter.getCurrentFrame(), null);
         playbackPanel.updateFrames(recorder.getFrames());
         previewPanel.update(recorder.getFrames());
-        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
+        if (followTick.isSelected()) tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
         repaint();
     }
 
@@ -227,4 +241,16 @@ public class CarPainter extends JPanel implements CarEventsListener {
     }
 
     private java.util.List<CarSnapshot> replayCars;
+
+    private void paintOverlayArrow(Graphics g, int left, int top, int step, ActionOverlay overlay){
+        if (overlay == null || overlay.from == null || overlay.to == null) return;
+        g.setColor(Color.ORANGE);
+        int x1 = left + overlay.from.col * step + step/2;
+        int y1 = top + overlay.from.row * step + step/2;
+        int x2 = left + overlay.to.col * step + step/2;
+        int y2 = top + overlay.to.row * step + step/2;
+        g.drawLine(x1, y1, x2, y2);
+        g.fillOval(x2-4, y2-4, 8,8);
+        g.drawString("前→后", Math.min(x1,x2), Math.min(y1,y2)-2);
+    }
 }
