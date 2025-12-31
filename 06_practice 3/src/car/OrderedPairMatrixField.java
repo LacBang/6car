@@ -108,9 +108,7 @@ public class OrderedPairMatrixField implements MatrixField {
         MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] tryLock pair "+fr+","+fc+" -> "+tr+","+tc, tr, tc);
         if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
         if (fr==tr && fc==tc) return true;
-        waiting(true);
-        lockPairOrdered(fr,fc,tr,tc);
-        waiting(false);
+        waitPair(fr,fc,tr,tc);
         try{
             MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] check from "+fr+","+fc, fr, fc);
             if (cells[fr][fc] != CellState.CAR) return false;
@@ -135,9 +133,7 @@ public class OrderedPairMatrixField implements MatrixField {
     public Position occupyFirstFreeCellByCar() {
         for (int r=0;r<rows;r++){
             for (int c=0;c<cols;c++){
-                waiting(true);
-                locks[r][c].lock();
-                waiting(false);
+                waitLock(locks[r][c]);
                 try{
                     MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] occupy "+r+","+c);
                     if (cells[r][c] == CellState.EMPTY){
@@ -166,6 +162,28 @@ public class OrderedPairMatrixField implements MatrixField {
         Integer id = MonitorCenter.currentCarId();
         if (id != null){
             MonitorCenter.updateWaiting(id, w);
+        }
+    }
+
+    private void waitLock(ReentrantLock lock){
+        waiting(true);
+        try{
+            while(!lock.tryLock()){
+                try{ Thread.sleep(5);}catch(InterruptedException e){ Thread.currentThread().interrupt(); }
+            }
+        }finally {
+            waiting(false);
+        }
+    }
+
+    private void waitPair(int fr,int fc,int tr,int tc){
+        int a = lin(fr,fc), b = lin(tr,tc);
+        if (a <= b){
+            waitLock(locks[fr][fc]);
+            if (a != b) waitLock(locks[tr][tc]);
+        }else{
+            waitLock(locks[tr][tc]);
+            waitLock(locks[fr][fc]);
         }
     }
 }

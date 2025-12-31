@@ -145,9 +145,7 @@ public class FieldMatrix implements MatrixField {
         if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
         if (fr == tr && fc == tc) return true;
 
-        waiting(true);
-        lockCell(tr, tc);
-        waiting(false);
+        waitLock(locks[tr][tc], tr, tc);
         MonitorCenter.tick(TickType.ATOMIC,"locked target "+tr+","+tc, tr, tc);
         try {
             MonitorCenter.tick(TickType.ATOMIC,"check from "+fr+","+fc, fr, fc);
@@ -189,6 +187,17 @@ public class FieldMatrix implements MatrixField {
         int id = currentCarId();
         if (id != -1){
             MonitorCenter.updateWaiting(id, w);
+        }
+    }
+
+    private void waitLock(ReentrantLock lock, int r, int c){
+        waiting(true);
+        try{
+            while(!lock.tryLock()){
+                try{ Thread.sleep(5);}catch(InterruptedException e){ Thread.currentThread().interrupt(); }
+            }
+        }finally {
+            waiting(false);
         }
     }
 }

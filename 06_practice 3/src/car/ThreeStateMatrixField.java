@@ -118,9 +118,7 @@ public class ThreeStateMatrixField implements MatrixField {
         MonitorCenter.tick(TickType.ATOMIC,"[THREE] tryLock "+fr+","+fc+" -> "+tr+","+tc, tr, tc);
         if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
         if (fr==tr && fc==tc) return true;
-        waiting(true);
-        lockPair(carLock, emptyLock);
-        waiting(false);
+        waitPair(carLock, emptyLock);
         try{
             MonitorCenter.tick(TickType.ATOMIC,"[THREE] check from "+fr+","+fc, fr, fc);
             if (cells[fr][fc] != CellState.CAR) return false;
@@ -143,9 +141,7 @@ public class ThreeStateMatrixField implements MatrixField {
 
     @Override
     public Position occupyFirstFreeCellByCar() {
-        waiting(true);
-        lockPair(emptyLock, carLock);
-        waiting(false);
+        waitPair(emptyLock, carLock);
         try{
             for (int r=0;r<rows;r++){
                 for (int c=0;c<cols;c++){
@@ -176,6 +172,22 @@ public class ThreeStateMatrixField implements MatrixField {
         Integer id = MonitorCenter.currentCarId();
         if (id != null){
             MonitorCenter.updateWaiting(id, w);
+        }
+    }
+
+    private void waitPair(ReentrantLock a, ReentrantLock b){
+        waiting(true);
+        try{
+            while(true){
+                boolean gotA = a.tryLock();
+                boolean gotB = b.tryLock();
+                if (gotA && gotB) break;
+                if (gotA) a.unlock();
+                if (gotB) b.unlock();
+                try{ Thread.sleep(5);}catch(InterruptedException e){ Thread.currentThread().interrupt(); }
+            }
+        }finally {
+            waiting(false);
         }
     }
 }

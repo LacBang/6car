@@ -79,9 +79,7 @@ public class GlobalLockMatrixField implements MatrixField {
     @Override
     public boolean moveCarTo(int fr, int fc, int tr, int tc) {
         MonitorCenter.tick(TickType.ATOMIC,"[GLOBAL] tryLock target "+tr+","+tc, tr, tc);
-        waiting(true);
-        global.lock();
-        waiting(false);
+        waitLock(global);
         try{
             if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
             if (fr==tr && fc==tc) return true;
@@ -106,9 +104,7 @@ public class GlobalLockMatrixField implements MatrixField {
 
     @Override
     public Position occupyFirstFreeCellByCar() {
-        waiting(true);
-        global.lock();
-        waiting(false);
+        waitLock(global);
         try{
             for (int r=0;r<rows;r++){
                 for (int c=0;c<cols;c++){
@@ -139,6 +135,17 @@ public class GlobalLockMatrixField implements MatrixField {
         Integer id = MonitorCenter.currentCarId();
         if (id != null){
             MonitorCenter.updateWaiting(id, w);
+        }
+    }
+
+    private void waitLock(ReentrantLock lock){
+        waiting(true);
+        try{
+            while(!lock.tryLock()){
+                try{ Thread.sleep(5);}catch(InterruptedException e){ Thread.currentThread().interrupt(); }
+            }
+        }finally {
+            waiting(false);
         }
     }
 }
