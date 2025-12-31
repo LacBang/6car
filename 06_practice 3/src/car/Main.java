@@ -1,6 +1,8 @@
 package car;
 
 import car.command.*;
+import car.monitor.MonitorCenter;
+import car.monitor.ThreadStatusWindow;
 
 import java.awt.*;
 import java.io.FileInputStream;
@@ -13,11 +15,14 @@ import java.util.Random;
  * @author : Alex
  **/
 public class Main {
+    public static final LockMode MODE = LockMode.TARGET_SINGLE;
+
     public static void main(String[] args) throws Exception{
         InputStream is = CarPainter.class.getClassLoader().getResourceAsStream("field.txt");
-        FieldMatrix fm = FieldMatrix.load(new InputStreamReader(is));
-        //FieldMatrix fm = new FieldMatrix(10,10);
+        MatrixField fm = MatrixFieldFactory.load(MODE, new InputStreamReader(is));
         CarPainter p = new CarPainter(fm);
+        ThreadStatusWindow threadStatusWindow = new ThreadStatusWindow();
+        MonitorCenter.addThreadListener(threadStatusWindow);
         BasicCarServer carServer = new BasicCarServer(fm, p);
         new Thread(carServer.wallTask()).start(); // ////
         //Car car = carServer.createCar();
@@ -37,6 +42,7 @@ public class Main {
                 Random random = new Random();
                 Car car = carServer.createCar();
                 car.setName(name);
+                Thread.currentThread().setName("car-thread-"+car.getIndex()+"-"+name);
                 CarServer.Direction direction = CarServer.Direction.DOWN;
                 while(true){
                     boolean result;
