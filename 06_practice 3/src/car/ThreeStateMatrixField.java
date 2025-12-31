@@ -115,25 +115,37 @@ public class ThreeStateMatrixField implements MatrixField {
 
     @Override
     public boolean moveCarTo(int fr, int fc, int tr, int tc) {
-        MonitorCenter.tick(TickType.BEHAVIOR_START,"[THREE] move "+fr+","+fc+" -> "+tr+","+tc);
+        MonitorCenter.tick(TickType.ATOMIC,"[THREE] tryLock "+fr+","+fc+" -> "+tr+","+tc, tr, tc);
         if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
         if (fr==tr && fc==tc) return true;
+        waiting(true);
         lockPair(carLock, emptyLock);
+        waiting(false);
         try{
+            MonitorCenter.tick(TickType.ATOMIC,"[THREE] check from "+fr+","+fc, fr, fc);
             if (cells[fr][fc] != CellState.CAR) return false;
-            if (cells[tr][tc] != CellState.EMPTY) return false;
+            MonitorCenter.tick(TickType.ATOMIC,"[THREE] check target "+tr+","+tc, tr, tc);
+            if (cells[tr][tc] != CellState.EMPTY) {
+                MonitorCenter.tick(TickType.CRITICAL,"[THREE] 吞并 "+tr+","+tc, tr, tc);
+                return false;
+            }
             cells[fr][fc] = CellState.EMPTY;
             cells[tr][tc] = CellState.CAR;
-            MonitorCenter.tick(TickType.BEHAVIOR_END,"[THREE] moved");
+            MonitorCenter.tick(TickType.ATOMIC,"[THREE] write from "+fr+","+fc, fr, fc);
+            MonitorCenter.tick(TickType.ATOMIC,"[THREE] write target "+tr+","+tc, tr, tc);
+            MonitorCenter.tick(TickType.BEHAVIOR_END,"[THREE] moved", tr, tc);
             return true;
         }finally {
+            MonitorCenter.tick(TickType.ATOMIC,"[THREE] unlock pair", tr, tc);
             unlockPair(carLock, emptyLock);
         }
     }
 
     @Override
     public Position occupyFirstFreeCellByCar() {
+        waiting(true);
         lockPair(emptyLock, carLock);
+        waiting(false);
         try{
             for (int r=0;r<rows;r++){
                 for (int c=0;c<cols;c++){
@@ -158,5 +170,12 @@ public class ThreeStateMatrixField implements MatrixField {
     @Override
     public int getCols() {
         return cols;
+    }
+
+    private void waiting(boolean w){
+        Integer id = MonitorCenter.currentCarId();
+        if (id != null){
+            MonitorCenter.updateWaiting(id, w);
+        }
     }
 }

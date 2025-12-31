@@ -27,15 +27,19 @@ public class PlaybackRecorder {
         logFile = new File(dir, "replay-"+ LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))+".log");
     }
 
-    public void record(MatrixField field, String reason){
+    public void record(MatrixField field, java.util.List<CarSnapshot> cars, String reason, int frameIndex){
         MatrixField.CellState[][] snapshot = copy(field);
-        PlaybackFrame frame = new PlaybackFrame(snapshot, System.nanoTime(), reason);
+        PlaybackFrame frame = new PlaybackFrame(snapshot, System.nanoTime(), reason, cars, frameIndex);
         frames.add(frame);
         appendToFile(frame);
     }
 
     public List<PlaybackFrame> getFrames(){
         return frames;
+    }
+
+    public int size(){
+        return frames.size();
     }
 
     private MatrixField.CellState[][] copy(MatrixField field){

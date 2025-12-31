@@ -19,6 +19,7 @@ public class BasicCarServer implements CarServer {
 
     @Override
     public Car createCar() {
+        MonitorCenter.beginActionFrame();
         Position freeCell = fieldMatrix.occupyFirstFreeCellByCar();
         Car car = new Car(this, freeCell);
         cars.add(car);
@@ -34,15 +35,22 @@ public class BasicCarServer implements CarServer {
 
     @Override
     public boolean moveCarTo(Car car, Direction direction) {
+        MonitorCenter.beginActionFrame();
         Position from = car.getPosition();
         Position to = from.move(direction);
+        MonitorCenter.bindCar(car.getIndex());
         MonitorCenter.tick(TickType.BEHAVIOR_START,"car-"+car.getIndex()+" try move "+direction);
-        boolean ret = fieldMatrix.moveCarTo(from.row, from.col, to.row, to.col);
-        if (!ret){
-            MonitorCenter.tick(TickType.CRITICAL,"car-"+car.getIndex()+" blocked at "+to);
+        boolean ret;
+        try{
+            ret = fieldMatrix.moveCarTo(from.row, from.col, to.row, to.col);
+            if (!ret){
+                MonitorCenter.tick(TickType.CRITICAL,"car-"+car.getIndex()+" blocked at "+to, to.row, to.col);
+            }
+            carEventsListener.carMoved(car,from,to,ret);
+            return ret;
+        } finally {
+            MonitorCenter.clearCar();
         }
-        carEventsListener.carMoved(car,from,to,ret);
-        return ret;
     }
 
     public Runnable wallTask(){
@@ -55,6 +63,7 @@ public class BasicCarServer implements CarServer {
         public void run(){
             while(true){
                 try{ Thread.sleep(300 + rnd.nextInt(700)); }catch(InterruptedException e){ break; }
+                MonitorCenter.beginActionFrame();
                 if (rnd.nextBoolean()){
                     for (int t=0; t<20; t++){
                         int r = rnd.nextInt(fieldMatrix.getRows());

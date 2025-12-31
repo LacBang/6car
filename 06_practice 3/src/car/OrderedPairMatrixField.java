@@ -105,18 +105,28 @@ public class OrderedPairMatrixField implements MatrixField {
 
     @Override
     public boolean moveCarTo(int fr, int fc, int tr, int tc) {
-        MonitorCenter.tick(TickType.BEHAVIOR_START,"[ORDERED] move "+fr+","+fc+" -> "+tr+","+tc);
+        MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] tryLock pair "+fr+","+fc+" -> "+tr+","+tc, tr, tc);
         if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
         if (fr==tr && fc==tc) return true;
+        waiting(true);
         lockPairOrdered(fr,fc,tr,tc);
+        waiting(false);
         try{
+            MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] check from "+fr+","+fc, fr, fc);
             if (cells[fr][fc] != CellState.CAR) return false;
-            if (cells[tr][tc] != CellState.EMPTY) return false;
+            MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] check target "+tr+","+tc, tr, tc);
+            if (cells[tr][tc] != CellState.EMPTY) {
+                MonitorCenter.tick(TickType.CRITICAL,"[ORDERED] 吞并 "+tr+","+tc, tr, tc);
+                return false;
+            }
             cells[fr][fc] = CellState.EMPTY;
             cells[tr][tc] = CellState.CAR;
-            MonitorCenter.tick(TickType.BEHAVIOR_END,"[ORDERED] moved");
+            MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] write from "+fr+","+fc, fr, fc);
+            MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] write target "+tr+","+tc, tr, tc);
+            MonitorCenter.tick(TickType.BEHAVIOR_END,"[ORDERED] moved", tr, tc);
             return true;
         }finally {
+            MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] unlock pair", tr, tc);
             unlockPairOrdered(fr,fc,tr,tc);
         }
     }
@@ -125,7 +135,9 @@ public class OrderedPairMatrixField implements MatrixField {
     public Position occupyFirstFreeCellByCar() {
         for (int r=0;r<rows;r++){
             for (int c=0;c<cols;c++){
+                waiting(true);
                 locks[r][c].lock();
+                waiting(false);
                 try{
                     MonitorCenter.tick(TickType.ATOMIC,"[ORDERED] occupy "+r+","+c);
                     if (cells[r][c] == CellState.EMPTY){
@@ -148,5 +160,12 @@ public class OrderedPairMatrixField implements MatrixField {
     @Override
     public int getCols() {
         return cols;
+    }
+
+    private void waiting(boolean w){
+        Integer id = MonitorCenter.currentCarId();
+        if (id != null){
+            MonitorCenter.updateWaiting(id, w);
+        }
     }
 }

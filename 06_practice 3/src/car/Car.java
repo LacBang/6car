@@ -2,6 +2,7 @@ package car;
 
 import car.monitor.MonitorCenter;
 import car.monitor.TickType;
+import car.control.ControlCenter;
 
 import java.awt.*;
 import java.util.Random;
@@ -39,6 +40,9 @@ public class Car {
     public boolean moveTo(CarServer.Direction direction){
         try {
             MonitorCenter.updateThreadState(index, Thread.currentThread().getState());
+            while (ControlCenter.isPaused()){
+                Thread.sleep(100);
+            }
             Thread.sleep(speed);
         } catch (InterruptedException e) {
             e.printStackTrace();

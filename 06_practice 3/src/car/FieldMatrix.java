@@ -69,13 +69,13 @@ public class FieldMatrix implements MatrixField {
     public Position occupyFirstFreeCellByCar() {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                MonitorCenter.tick(TickType.ATOMIC,"try occupy "+i+","+j);
+                MonitorCenter.tick(TickType.ATOMIC,"try occupy "+i+","+j, i, j);
                 // 尝试只锁这个格子，避免全局阻塞与死锁
                 if (locks[i][j].tryLock()) {
                     try {
                         if (cells[i][j] == CellState.EMPTY) {
                             cells[i][j] = CellState.CAR;
-                            MonitorCenter.tick(TickType.CRITICAL,"occupy success "+i+","+j);
+                            MonitorCenter.tick(TickType.CRITICAL,"occupy success "+i+","+j, i, j);
                             return new Position(i, j);
                         }
                     } finally {
@@ -141,20 +141,31 @@ public class FieldMatrix implements MatrixField {
 
     @Override
     public boolean moveCarTo(int fr, int fc, int tr, int tc){
-        MonitorCenter.tick(TickType.BEHAVIOR_START,"move "+fr+","+fc+" -> "+tr+","+tc);
+        MonitorCenter.tick(TickType.ATOMIC,"tryLock target "+tr+","+tc, tr, tc);
         if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
         if (fr == tr && fc == tc) return true;
 
+        waiting(true);
         lockCell(tr, tc);
+        waiting(false);
+        MonitorCenter.tick(TickType.ATOMIC,"locked target "+tr+","+tc, tr, tc);
         try {
+            MonitorCenter.tick(TickType.ATOMIC,"check from "+fr+","+fc, fr, fc);
             if (cells[fr][fc] != CellState.CAR)   return false;
-            if (cells[tr][tc] != CellState.EMPTY) return false;
+            MonitorCenter.tick(TickType.ATOMIC,"check target empty "+tr+","+tc, tr, tc);
+            if (cells[tr][tc] != CellState.EMPTY) {
+                MonitorCenter.tick(TickType.CRITICAL,"吞并/冲突 "+tr+","+tc, tr, tc);
+                return false;
+            }
 
             cells[fr][fc] = CellState.EMPTY;
             cells[tr][tc] = CellState.CAR;
-            MonitorCenter.tick(TickType.BEHAVIOR_END,"move done "+fr+","+fc+" -> "+tr+","+tc);
+            MonitorCenter.tick(TickType.ATOMIC,"write from empty "+fr+","+fc, fr, fc);
+            MonitorCenter.tick(TickType.ATOMIC,"write target car "+tr+","+tc, tr, tc);
+            MonitorCenter.tick(TickType.BEHAVIOR_END,"move done "+fr+","+fc+" -> "+tr+","+tc, tr, tc);
             return true;
         } finally {
+            MonitorCenter.tick(TickType.ATOMIC,"unlock target "+tr+","+tc, tr, tc);
             unlockCell(tr, tc);
         }
     }
@@ -167,5 +178,17 @@ public class FieldMatrix implements MatrixField {
     @Override
     public int getCols() {
         return cols;
+    }
+
+    private int currentCarId(){
+        Integer id = MonitorCenter.currentCarId();
+        return id == null ? -1 : id;
+    }
+
+    private void waiting(boolean w){
+        int id = currentCarId();
+        if (id != -1){
+            MonitorCenter.updateWaiting(id, w);
+        }
     }
 }

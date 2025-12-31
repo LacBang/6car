@@ -2,7 +2,7 @@ package car;
 
 import car.command.*;
 import car.monitor.MonitorCenter;
-import car.monitor.ThreadStatusWindow;
+import car.monitor.ThreadLightWindow;
 
 import java.awt.*;
 import java.io.FileInputStream;
@@ -21,8 +21,9 @@ public class Main {
         InputStream is = CarPainter.class.getClassLoader().getResourceAsStream("field.txt");
         MatrixField fm = MatrixFieldFactory.load(MODE, new InputStreamReader(is));
         CarPainter p = new CarPainter(fm);
-        ThreadStatusWindow threadStatusWindow = new ThreadStatusWindow();
-        MonitorCenter.addThreadListener(threadStatusWindow);
+        ThreadLightWindow lightWindow = new ThreadLightWindow();
+        MonitorCenter.addThreadListener(lightWindow);
+        MonitorCenter.addWaitingListener(lightWindow);
         BasicCarServer carServer = new BasicCarServer(fm, p);
         new Thread(carServer.wallTask()).start(); // ////
         //Car car = carServer.createCar();

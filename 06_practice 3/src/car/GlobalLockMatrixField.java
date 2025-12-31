@@ -78,25 +78,37 @@ public class GlobalLockMatrixField implements MatrixField {
 
     @Override
     public boolean moveCarTo(int fr, int fc, int tr, int tc) {
-        MonitorCenter.tick(TickType.BEHAVIOR_START,"[GLOBAL] move "+fr+","+fc+" -> "+tr+","+tc);
+        MonitorCenter.tick(TickType.ATOMIC,"[GLOBAL] tryLock target "+tr+","+tc, tr, tc);
+        waiting(true);
         global.lock();
+        waiting(false);
         try{
             if (!inBounds(fr,fc) || !inBounds(tr,tc)) return false;
             if (fr==tr && fc==tc) return true;
+            MonitorCenter.tick(TickType.ATOMIC,"[GLOBAL] check from "+fr+","+fc, fr, fc);
             if (cells[fr][fc] != CellState.CAR) return false;
-            if (cells[tr][tc] != CellState.EMPTY) return false;
+            MonitorCenter.tick(TickType.ATOMIC,"[GLOBAL] check target "+tr+","+tc, tr, tc);
+            if (cells[tr][tc] != CellState.EMPTY) {
+                MonitorCenter.tick(TickType.CRITICAL,"[GLOBAL] 吞并 "+tr+","+tc, tr, tc);
+                return false;
+            }
             cells[fr][fc] = CellState.EMPTY;
             cells[tr][tc] = CellState.CAR;
-            MonitorCenter.tick(TickType.BEHAVIOR_END,"[GLOBAL] moved");
+            MonitorCenter.tick(TickType.ATOMIC,"[GLOBAL] write from "+fr+","+fc, fr, fc);
+            MonitorCenter.tick(TickType.ATOMIC,"[GLOBAL] write target "+tr+","+tc, tr, tc);
+            MonitorCenter.tick(TickType.BEHAVIOR_END,"[GLOBAL] moved", tr, tc);
             return true;
         }finally {
+            MonitorCenter.tick(TickType.ATOMIC,"[GLOBAL] unlock "+tr+","+tc, tr, tc);
             global.unlock();
         }
     }
 
     @Override
     public Position occupyFirstFreeCellByCar() {
+        waiting(true);
         global.lock();
+        waiting(false);
         try{
             for (int r=0;r<rows;r++){
                 for (int c=0;c<cols;c++){
@@ -121,5 +133,12 @@ public class GlobalLockMatrixField implements MatrixField {
     @Override
     public int getCols() {
         return cols;
+    }
+
+    private void waiting(boolean w){
+        Integer id = MonitorCenter.currentCarId();
+        if (id != null){
+            MonitorCenter.updateWaiting(id, w);
+        }
     }
 }

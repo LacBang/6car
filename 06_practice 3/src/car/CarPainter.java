@@ -1,9 +1,7 @@
 package car;
 
-import car.monitor.MonitorCenter;
-import car.monitor.PlaybackPanel;
-import car.monitor.PlaybackRecorder;
-import car.monitor.TickPanel;
+import car.monitor.*;
+import car.control.ControlCenter;
 
 import javax.swing.*;
 import java.awt.*;
@@ -20,6 +18,7 @@ public class CarPainter extends JPanel implements CarEventsListener {
     private final PlaybackRecorder recorder;
     private final PlaybackPanel playbackPanel;
     private final TickPanel tickPanel;
+    private final JToggleButton pauseBtn = new JToggleButton("暂停全局");
     private boolean liveMode = true;
     private MatrixField.CellState[][] replaySnapshot;
     private String overlay = "";
@@ -39,21 +38,39 @@ public class CarPainter extends JPanel implements CarEventsListener {
         f.add(this, BorderLayout.CENTER);
         f.add(tickPanel, BorderLayout.EAST);
         playbackPanel = new PlaybackPanel(this);
-        f.add(playbackPanel, BorderLayout.SOUTH);
+        JPanel south = new JPanel(new BorderLayout());
+        south.add(playbackPanel, BorderLayout.CENTER);
+        JPanel controlBar = new JPanel();
+        controlBar.add(pauseBtn);
+        south.add(controlBar, BorderLayout.EAST);
+        f.add(south, BorderLayout.SOUTH);
         f.setDefaultCloseOperation(EXIT_ON_CLOSE);
         f.setVisible(true);
-        recorder.record(fieldMatrix,"init");
+        MonitorCenter.addCriticalListener(frameIndex -> playbackPanel.markEvent(frameIndex));
+        pauseBtn.addActionListener(e -> {
+            if (pauseBtn.isSelected()){
+                pauseBtn.setText("已暂停");
+                ControlCenter.pause();
+            }else{
+                pauseBtn.setText("暂停全局");
+                ControlCenter.resume();
+            }
+        });
+        recorder.record(fieldMatrix, snapshotCars(),"init", MonitorCenter.getCurrentFrame());
         playbackPanel.updateFrames(recorder.getFrames());
+        tickPanel.setPageByFrame(0);
     }
 
     public PlaybackRecorder getRecorder(){
         return recorder;
     }
 
-    public void showSnapshot(MatrixField.CellState[][] snapshot, String overlay){
-        this.replaySnapshot = snapshot;
+    public void showSnapshot(PlaybackFrame frame, String overlay){
+        this.replaySnapshot = frame.getSnapshot();
         this.overlay = overlay;
         this.liveMode = false;
+        this.replayCars = frame.getCars();
+        tickPanel.setPageByFrame(frame.getIndex());
         repaint();
     }
 
@@ -128,6 +145,18 @@ public class CarPainter extends JPanel implements CarEventsListener {
                         g.setColor(Color.BLUE);
                         g.fill3DRect(left + j * step, top + i * step, step, step, false);
                     }
+                }
+            if (replayCars != null){
+                for (CarSnapshot cs : replayCars){
+                    Position p = cs.position;
+                    g.setColor(cs.color);
+                    g.fill3DRect(left + p.col * step, top + p.row * step, step, step, false);
+                    String label = cs.name != null ? cs.name : "car-"+cs.id;
+                    int stringWidth = fm.stringWidth(label);
+                    g.setColor(Color.WHITE);
+                    g.drawString(label, left + p.col * step + (step - stringWidth) / 2,
+                            top + p.row * step + step / 2);
+                }
             }
             g.setColor(Color.MAGENTA);
             g.drawString(overlay, left, top-5);
@@ -137,15 +166,17 @@ public class CarPainter extends JPanel implements CarEventsListener {
     @Override
     public void carCreated(Car car) {
         cars.add(car);
-        recorder.record(fieldMatrix,"car-created-"+car.getIndex());
+        recorder.record(fieldMatrix, snapshotCars(),"car-created-"+car.getIndex(), MonitorCenter.getCurrentFrame());
         playbackPanel.updateFrames(recorder.getFrames());
+        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
     }
 
     @Override
     public void carDestroyed(Car car) {
         cars.remove(car);
-        recorder.record(fieldMatrix,"car-destroyed-"+car.getIndex());
+        recorder.record(fieldMatrix, snapshotCars(),"car-destroyed-"+car.getIndex(), MonitorCenter.getCurrentFrame());
         playbackPanel.updateFrames(recorder.getFrames());
+        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
     }
 
     @Override
@@ -153,22 +184,36 @@ public class CarPainter extends JPanel implements CarEventsListener {
         if (!success){
             criticalHighlight = to;
             overlay = "冲突: "+to;
+            playbackPanel.markEvent(recorder.size());
         }else{
-            criticalHighlight = null;
+            criticalHighlight = to;
+            overlay = "移动到: "+to;
         }
-        recorder.record(fieldMatrix,"car-"+car.getIndex()+" move "+success);
+        recorder.record(fieldMatrix, snapshotCars(),"car-"+car.getIndex()+" move "+success, MonitorCenter.getCurrentFrame());
         playbackPanel.updateFrames(recorder.getFrames());
+        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
         repaint();
     }
 
     @Override
     public void fieldChanged() {
-        recorder.record(fieldMatrix,"field-change");
+        recorder.record(fieldMatrix, snapshotCars(),"field-change", MonitorCenter.getCurrentFrame());
         playbackPanel.updateFrames(recorder.getFrames());
+        tickPanel.setPageByFrame(MonitorCenter.getCurrentFrame());
         repaint();
     }
 
     public boolean isLiveMode(){
         return liveMode;
     }
+
+    private java.util.List<CarSnapshot> snapshotCars(){
+        java.util.List<CarSnapshot> result = new java.util.ArrayList<>();
+        for (Car c : cars){
+            result.add(new CarSnapshot(c.getIndex(), c.getName(), c.getColor(), c.getPosition()));
+        }
+        return result;
+    }
+
+    private java.util.List<CarSnapshot> replayCars;
 }

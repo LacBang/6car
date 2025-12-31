@@ -22,6 +22,7 @@ public class PlaybackPanel extends JPanel {
     private List<PlaybackFrame> frames;
     private int index = 0;
     private final CarPainter painter;
+    private final java.util.Set<Integer> marks = new java.util.HashSet<>();
 
     public PlaybackPanel(CarPainter painter){
         super(new FlowLayout(FlowLayout.LEFT));
@@ -65,6 +66,7 @@ public class PlaybackPanel extends JPanel {
     public void updateFrames(List<PlaybackFrame> frames){
         this.frames = frames;
         slider.setMaximum(Math.max(0, frames.size()-1));
+        refreshLabels();
     }
 
     public void step(int delta){
@@ -78,7 +80,7 @@ public class PlaybackPanel extends JPanel {
     private void applyFrame(int idx){
         if (frames == null || idx >= frames.size()) return;
         PlaybackFrame frame = frames.get(idx);
-        painter.showSnapshot(frame.getSnapshot(), "回放："+frame.getReason());
+        painter.showSnapshot(frame, "回放："+frame.getReason());
     }
 
     public boolean isRealtime(){
@@ -87,5 +89,19 @@ public class PlaybackPanel extends JPanel {
 
     public void switchToReplay(){
         realtime.setSelected(false);
+    }
+
+    public void markEvent(int frameIndex){
+        marks.add(frameIndex);
+        refreshLabels();
+    }
+
+    private void refreshLabels(){
+        java.util.Hashtable<Integer, JLabel> table = new java.util.Hashtable<>();
+        for (Integer m : marks){
+            table.put(m, new JLabel("*"));
+        }
+        slider.setLabelTable(table);
+        slider.setPaintLabels(true);
     }
 }
