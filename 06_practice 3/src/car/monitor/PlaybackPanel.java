@@ -101,7 +101,12 @@ public class PlaybackPanel extends JPanel {
         for (Integer m : marks){
             table.put(m, new JLabel("*"));
         }
-        slider.setLabelTable(table);
-        slider.setPaintLabels(true);
+        if (table.isEmpty()){
+            slider.setPaintLabels(false);
+            slider.setLabelTable(null);
+        }else{
+            slider.setLabelTable(table);
+            slider.setPaintLabels(true);
+        }
     }
 }
