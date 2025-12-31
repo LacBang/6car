@@ -65,8 +65,12 @@ public class PlaybackPanel extends JPanel {
                 slider.setValue(slider.getMaximum());
                 applyFrame(slider.getMaximum());
                 car.control.ControlCenter.resume();
+                playToggle.setSelected(true);
+                playToggle.setText("暂停");
             }else{
                 car.control.ControlCenter.pause();
+                playToggle.setSelected(false);
+                playToggle.setText("播放");
             }
         });
         slider.addChangeListener(e -> {

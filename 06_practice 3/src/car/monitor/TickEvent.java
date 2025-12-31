@@ -52,6 +52,7 @@ public class TickEvent {
 
     @Override
     public String toString() {
-        return "#" + carId + " " + message + " (frame " + frameIndex + ")";
+        String prefix = carId < 0 ? "##" : "#" + carId;
+        return prefix + " " + message + " (frame " + frameIndex + ")";
     }
 }
