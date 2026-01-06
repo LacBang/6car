@@ -1,6 +1,8 @@
 package car;
 
 import car.command.*;
+import car.monitor.MonitorCenter;
+import car.monitor.ThreadLightWindow;
 
 import java.awt.*;
 import java.io.FileInputStream;
@@ -13,11 +15,15 @@ import java.util.Random;
  * @author : Alex
  **/
 public class Main {
+    public static final LockMode MODE = LockMode.TARGET_SINGLE;
+
     public static void main(String[] args) throws Exception{
         InputStream is = CarPainter.class.getClassLoader().getResourceAsStream("field.txt");
-        FieldMatrix fm = FieldMatrix.load(new InputStreamReader(is));
-        //FieldMatrix fm = new FieldMatrix(10,10);
+        MatrixField fm = MatrixFieldFactory.load(MODE, new InputStreamReader(is));
         CarPainter p = new CarPainter(fm);
+        ThreadLightWindow lightWindow = new ThreadLightWindow();
+        MonitorCenter.addThreadListener(lightWindow);
+        MonitorCenter.addWaitingListener(lightWindow);
         BasicCarServer carServer = new BasicCarServer(fm, p);
         new Thread(carServer.wallTask()).start(); // ////
         //Car car = carServer.createCar();
@@ -36,7 +42,8 @@ public class Main {
             public void run(){
                 Random random = new Random();
                 Car car = carServer.createCar();
-                car.setName(name);
+                car.setName(String.valueOf(car.getIndex()));
+                Thread.currentThread().setName("car-thread-"+car.getIndex()+"-"+name);
                 CarServer.Direction direction = CarServer.Direction.DOWN;
                 while(true){
                     boolean result;
@@ -57,7 +64,11 @@ public class Main {
         Thread.sleep(1000);
         new Thread(new CarMover("Nata")).start(); //car3
         Thread.sleep(1000);
-        new Thread(new CarMover("Boris")).start(); //car3
+        new Thread(new CarMover("Boris")).start(); //car4
+        Thread.sleep(1000);
+        new Thread(new CarMover("Mila")).start(); //car5
+        Thread.sleep(1000);
+        new Thread(new CarMover("John")).start(); //car6
 
     }
 }
